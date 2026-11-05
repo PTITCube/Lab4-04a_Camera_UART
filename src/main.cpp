@@ -19,8 +19,8 @@ void setup() {
     Serial.println("\n[RAW] Khởi động module UART Camera...");
     delay(2000); // Chờ cam khởi động
     
-    Serial.println("[RAW] Gửi tín hiệu 'CAPTURE' qua UART2 đến ESP32-CAM...");
-    Serial2.println("CAPTURE");
+    Serial.println("[RAW] Gửi tín hiệu 'p' qua UART2 đến ESP32-CAM...");
+    Serial2.println("p");
 }
 
 void loop() {
