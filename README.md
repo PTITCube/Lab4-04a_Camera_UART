@@ -1,73 +1,62 @@
-# Lab4-04a_Camera_UART
+# Lab 4-04a: Chụp Ảnh JPEG Qua UART & Lưu Thẻ Nhớ (Camera UART & MicroSD)
 
-**Chụp ảnh bằng giao thức UART thuần và lưu trữ trực tiếp vào thẻ nhớ MicroSD (Black Box)**
-
-Bài thực hành thuộc Module 4 (Cảm biến & Tải trọng quang học) trong hệ thống CubeSat-LMS.
-
----
-
-## 1. Mục tiêu bài học
-- Hiểu và lập trình cơ chế bắt tay mức nhị phân (Binary Handshake Protocol) giữa On-Board Computer (ESP32) và module phụ tải trọng Camera (ESP32-CAM) qua UART2 mà không dùng thư viện đóng gói sẵn.
-- Thực hiện ghi dữ liệu ảnh JPEG nhị phân theo luồng trực tiếp (Data Streaming) từ UART vào hệ thống tập tin trên thẻ nhớ MicroSD qua bus SPI.
-- Mô phỏng nguyên lý lưu trữ hộp đen (Black Box Non-Volatile Storage) trong hệ thống vệ tinh CubeSat trước khi thực hiện downlink về trạm mặt đất.
+> **Phân hệ:** Sensor & Payload Viễn Thám  
+> **Thư viện yêu cầu:** `PTITCube Library v1.1.0`  
+> **Nền tảng:** PlatformIO / ESP32-WROOM-32 (OBC)
 
 ---
 
-## 2. Sơ đồ kết nối phần cứng
+## 📖 1. Mục Tiêu & Mô Tả Bài Thực Hành
 
-### A. Giao tiếp UART2 giữa ESP32 (OBC) và ESP32-CAM
-| Chân ESP32 (OBC) | Chân ESP32-CAM | Chức năng |
+Bắt tay với module ESP32-CAM qua cổng UART2, ra lệnh chụp ảnh, nhận luồng byte ảnh JPEG (SOI 0xFFD8, EOI 0xFFD9) và ghi trực tiếp vào thẻ nhớ MicroSD.
+
+---
+
+## 🔌 2. Sơ Đồ Chân Phần Cứng (Hardware Pinout)
+
+| Ngoại vi | Chân ESP32 | Mô tả |
 | :--- | :--- | :--- |
-| **GPIO 16 (RX2)** | **GPIO 14 (TX2)** | Nhận luồng dữ liệu byte ảnh từ Camera |
-| **GPIO 17 (TX2)** | **GPIO 15 (RX2)** | Gửi tín hiệu điều khiển (`p`, `OK`, `DONE`) |
-| **GND** | **GND** | Nối chung mass |
-
-### B. Giao tiếp SPI giữa ESP32 (OBC) và khe thẻ nhớ MicroSD
-| Chân ESP32 (OBC) | Khe thẻ MicroSD | Chức năng |
-| :--- | :--- | :--- |
-| **GPIO 13** | **CS** | Chip Select thẻ nhớ |
-| **GPIO 18** | **SCK** | SPI Clock |
-| **GPIO 19** | **MISO** | SPI Master In Slave Out |
-| **GPIO 23** | **MOSI** | SPI Master Out Slave In |
-| **3V3 / 5V** | **VCC** | Nguồn cấp |
-| **GND** | **GND** | Mass |
-
-### C. Bộ chuyển mạch MUX 74HC4066 (nếu bo mạch dùng chung UART2 với GPS)
-- `MUX_CAM_PIN` (GPIO 14): Kích hoạt `HIGH` để mở thông kênh Camera.
-- `MUX_GPS_PIN` (GPIO 12): Kích hoạt `LOW` để ngắt kênh GPS.
+| Camera UART2 | GPIO 16 (RX2), GPIO 17 (TX2) | Kênh giao tiếp với module camera OV2640 |
+| Thẻ MicroSD | CS=13, SCK=18, MISO=19, MOSI=23 | Giao tiếp lưu trữ ảnh JPEG |
 
 ---
 
-## 3. Giao thức bắt tay UART (Raw Handshake Protocol)
+## 🛠️ 3. Cấu Hình Phần Mềm & Thư Viện
 
-```
-        OBC (ESP32)                              ESP32-CAM
-             |                                       |
-             | ---------- "p\n" (Chụp ảnh) --------> |
-             |                                       | (Chụp cảm biến OV2640)
-             | <-------- "SIZE:<bytes>\n" ---------- |
-             |                                       |
-    (Mở file trên SD)                                |
-             |                                       |
-             | ------------ "OK\n" (Sẵn sàng) ------> |
-             |                                       |
-             | <------- [Binary JPEG Stream] ------- |
-    (Ghi khối buffer vào SD)                         |
-             |                                       |
-             | ---------- "DONE\n" (Hoàn tất) -----> |
-             v                                       v
+- **Thư viện cốt lõi:** Thư mục `lib/PTITCube` tích hợp sẵn bộ thư viện phiên bản mới nhất `v1.1.0` với các phân hệ phân lớp:
+  - `CDH`: Quản lý luồng xuất nhập dữ liệu `cdh` (Stream inheritance) và hệ thống tệp FAT32 trên thẻ nhớ MicroSD.
+  - `EPS`: Quản lý năng lượng, đọc IC MAX17048 qua I2C.
+  - `Sensor`: Đọc cụm cảm biến môi trường BMP280, cảm biến quán tính 6-DoF MPU6500, từ kế QMC5883L và định vị GNSS L76X.
+  - `COM`: Quản lý module vô tuyến LoRa Ebyte E32 qua giao tiếp UART2.
+- **Kênh giám sát Console:**
+  - **Công cụ:** `cdh (PTIT_CDH stream - 115200 baud)`
+  - **Tốc độ Baud:** `115200 bps`
+  - **Lưu ý chuẩn hóa:** Kể từ Lab 3, mọi luồng in debug console được chuẩn hóa qua đối tượng `cdh` (`PTIT_CDH cdh;`) kế thừa trực tiếp từ lớp `Stream`/`Print` của Arduino, thay thế hoàn toàn cho `Serial` thông thường.
+
+---
+
+## 🚀 4. Hướng Dẫn Biên Dịch & Nạp Firmware
+
+Sử dụng **PlatformIO CLI** hoặc giao diện **VSCode / PlatformIO IDE**:
+
+```bash
+# 1. Di chuyển vào thư mục dự án
+cd Lab4-04a_Camera_UART
+
+# 2. Biên dịch mã nguồn
+pio run
+
+# 3. Nạp firmware vào vi điều khiển vệ tinh
+pio run -t upload
+
+# 4. Mở cửa sổ giám sát Serial Monitor
+pio device monitor -b 115200
 ```
 
 ---
 
-## 4. Hướng dẫn thực hành
-1. Lắp thẻ nhớ MicroSD đã định dạng **FAT32** vào khe thẻ nhớ trên bo mạch.
-2. Kết nối OBC ESP32 với máy tính qua cổng USB.
-3. Mở Serial Monitor ở tốc độ baud **115200**.
-4. Khi hệ thống khởi động và mount thành công thẻ nhớ, nhập ký tự `p` hoặc `P` rồi gửi:
-   - ESP32 gửi lệnh `p\n` tới ESP32-CAM.
-   - ESP32-CAM phản hồi `SIZE:<dung_luong>`.
-   - ESP32 mở file `/photos/uart_img_<id>.jpg` trên MicroSD và xác nhận `OK`.
-   - Toàn bộ luồng byte JPEG được ghi trực tiếp vào thẻ nhớ.
-   - Sau khi hoàn thành, file được đóng và kiểm tra tính toàn vẹn dung lượng.
-5. Tháo thẻ nhớ cắm vào máy tính để kiểm tra các file ảnh đã chụp trong thư mục `/photos/`.
+## 📝 5. Lưu Ý Kỹ Thuật
+
+- Bắt buộc phải có thẻ nhớ MicroSD cắm trên bo mạch để lưu trữ tệp ảnh chụp.
+- Không chèn các lệnh in `println()` trang trí dư thừa làm nghẽn bộ đệm UART khi vệ tinh vận hành ở tần số cao.
+- Kiểm tra kết nối cáp USB-UART và nguồn pin trước khi thực hiện nạp code.
