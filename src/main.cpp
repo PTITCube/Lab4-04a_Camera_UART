@@ -76,7 +76,7 @@ bool initMicroSD() {
 
     if (!SD.begin(SD_CS_PIN, SPI, 8000000)) {
         cdh.println("[SD] LOI: Khong the mount the nho MicroSD!");
-        cdh.println("[SD] Vui long kiem tra khe cam the nho hoac format ve FAT32.");
+
         return false;
     }
 
@@ -229,10 +229,7 @@ void setup() {
     cdh.printf("[UART-CAM] UART2 da khoi dong (Baudrate: %d, RX: %d, TX: %d)\n", 
                   CAM_BAUD, CAM_RX_PIN, CAM_TX_PIN);
 
-    cdh.println("\nHUONG DAN SU DUNG:");
-    cdh.println("  -> Nhap ky tu 'p' hoac 'P' tren cdh Monitor de chup anh");
-    cdh.println("  -> OBC se gui lenh qua UART2 va ghi truc tiep byte nhan duoc vao MicroSD.");
-    cdh.println("--------------------------------------------------------\n");
+    cdh.println("[READY] Nhap 'p' tren cdh Monitor de chup anh va luu vao MicroSD.");
 }
 
 void loop() {
