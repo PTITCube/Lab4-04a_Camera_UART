@@ -71,24 +71,24 @@ void selectCameraChannel() {
 
 // Khởi tạo thẻ nhớ MicroSD qua SPI
 bool initMicroSD() {
-    cdh.println("[SD] Khoi tao giao tiep SPI cho the nho MicroSD...");
+    cdh.println("SD: Khoi tao giao tiep SPI cho the nho MicroSD...");
     SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
 
     if (!SD.begin(SD_CS_PIN, SPI, 8000000)) {
-        cdh.println("[SD] LOI: Khong the mount the nho MicroSD!");
+        cdh.println("SD: LOI: Khong the mount the nho MicroSD!");
 
         return false;
     }
 
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
-    cdh.printf("[SD] Mount thanh cong! Dung luong the: %llu MB\n", cardSize);
+    cdh.printf("SD: Mount thanh cong! Dung luong the: %llu MB\n", cardSize);
 
     // Đảm bảo thư mục /photos tồn tại
     if (!SD.exists("/photos")) {
         if (SD.mkdir("/photos")) {
-            cdh.println("[SD] Da tao thu muc /photos.");
+            cdh.println("SD: Da tao thu muc /photos.");
         } else {
-            cdh.println("[SD] Canh bao: Khong the tao thu muc /photos!");
+            cdh.println("SD: Canh bao: Khong the tao thu muc /photos!");
         }
     }
 
@@ -98,7 +98,7 @@ bool initMicroSD() {
 // Hàm chụp ảnh qua UART thuần và ghi trực tiếp vào thẻ nhớ
 bool captureAndSaveToSD() {
     if (!sdReady) {
-        cdh.println("[LOI] The nho SD chua san sang! Khong the luu anh.");
+        cdh.println("LOI: The nho SD chua san sang! Khong the luu anh.");
         return false;
     }
 
@@ -111,12 +111,12 @@ bool captureAndSaveToSD() {
     }
 
     // 3. Gửi lệnh chụp 'p\n' đến ESP32-CAM
-    cdh.println("\n[UART-CAM] Gui lenh chup anh ('p') toi ESP32-CAM...");
+    cdh.println("\nUART-CAM: Gui lenh chup anh ('p') toi ESP32-CAM...");
     Serial2.print("p\n");
     Serial2.flush();
 
     // 4. Chờ ESP32-CAM phản hồi kích thước ảnh: "SIZE:<bytes>"
-    cdh.println("[UART-CAM] Cho phan hoi SIZE tu ESP32-CAM (Timeout: 5s)...");
+    cdh.println("UART-CAM: Cho phan hoi SIZE tu ESP32-CAM (Timeout: 5s)...");
     unsigned long startTime = millis();
     long imageSize = 0;
     bool sizeReceived = false;
@@ -131,7 +131,7 @@ bool captureAndSaveToSD() {
                 sizeReceived = true;
                 break;
             } else if (line.startsWith("ERROR:")) {
-                cdh.printf("[UART-CAM] ESP32-CAM bao loi: %s\n", line.c_str());
+                cdh.printf("UART-CAM: ESP32-CAM bao loi: %s\n", line.c_str());
                 return false;
             }
         }
@@ -139,11 +139,11 @@ bool captureAndSaveToSD() {
     }
 
     if (!sizeReceived || imageSize <= 0) {
-        cdh.println("[UART-CAM] LOI: Khong nhan duoc phan hoi SIZE hoac kich thuoc = 0!");
+        cdh.println("UART-CAM: LOI: Khong nhan duoc phan hoi SIZE hoac kich thuoc = 0!");
         return false;
     }
 
-    cdh.printf("[UART-CAM] ESP32-CAM san sang truyen anh, kich thuoc: %ld bytes (%.2f KB)\n", 
+    cdh.printf("UART-CAM: ESP32-CAM san sang truyen anh, kich thuoc: %ld bytes (%.2f KB)\n", 
                   imageSize, imageSize / 1024.0);
 
     // 5. Mở file mới trên thẻ MicroSD để ghi dữ liệu JPEG
@@ -152,14 +152,14 @@ bool captureAndSaveToSD() {
     
     File file = SD.open(filePath, FILE_WRITE);
     if (!file) {
-        cdh.printf("[SD] LOI: Khong the tao file ghi tren the nho: %s\n", filePath);
+        cdh.printf("SD: LOI: Khong the tao file ghi tren the nho: %s\n", filePath);
         return false;
     }
 
     // 6. Gửi xác nhận "OK\n" để ESP32-CAM bắt đầu truyền luồng nhị phân
     Serial2.print("OK\n");
     Serial2.flush();
-    cdh.printf("[SD] Bat dau ghi du lieu truc tiep vao file: %s ...\n", filePath);
+    cdh.printf("SD: Bat dau ghi du lieu truc tiep vao file: %s ...\n", filePath);
 
     // 7. Tiếp nhận luồng byte qua UART2 và ghi theo khối vào thẻ nhớ
     uint8_t buffer[256];
@@ -199,12 +199,12 @@ bool captureAndSaveToSD() {
         Serial2.print("DONE\n");
         Serial2.flush();
 
-                cdh.printf("[THANH CONG] Da luu anh vao the nho: %s\n", filePath);
+                cdh.printf("THANH CONG: Da luu anh vao the nho: %s\n", filePath);
         cdh.printf("             Tong dung luong: %ld bytes\n", totalBytesReceived);
                 photoCounter++;
         success = true;
     } else {
-        cdh.printf("[LOI] Timeout truyen nhan! Chi nhan duoc %ld / %ld bytes.\n", 
+        cdh.printf("LOI: Timeout truyen nhan! Chi nhan duoc %ld / %ld bytes.\n", 
                       totalBytesReceived, imageSize);
         success = false;
     }
@@ -221,15 +221,15 @@ void setup() {
     // Khởi tạo thẻ nhớ MicroSD
     sdReady = initMicroSD();
     if (!sdReady) {
-        cdh.println("[CANH BAO] Thao tac ghi file se khong kha dung neu khong co the nho!");
+        cdh.println("CANH BAO: Thao tac ghi file se khong kha dung neu khong co the nho!");
     }
 
     // Khởi tạo UART2 kết nối với module ESP32-CAM
     Serial2.begin(CAM_BAUD, SERIAL_8N1, CAM_RX_PIN, CAM_TX_PIN);
-    cdh.printf("[UART-CAM] UART2 da khoi dong (Baudrate: %d, RX: %d, TX: %d)\n", 
+    cdh.printf("UART-CAM: UART2 da khoi dong (Baudrate: %d, RX: %d, TX: %d)\n", 
                   CAM_BAUD, CAM_RX_PIN, CAM_TX_PIN);
 
-    cdh.println("[READY] Nhap 'p' tren cdh Monitor de chup anh va luu vao MicroSD.");
+    cdh.println("READY: Nhap 'p' tren cdh Monitor de chup anh va luu vao MicroSD.");
 }
 
 void loop() {
@@ -245,7 +245,7 @@ void loop() {
         if (cmd == 'p' || cmd == 'P') {
             captureAndSaveToSD();
         } else {
-            cdh.printf("[INFO] Ky tu '%c' khong hop le. Vui long nhap 'p' de chup anh.\n", cmd);
+            cdh.printf("INFO: Ky tu '%c' khong hop le. Vui long nhap 'p' de chup anh.\n", cmd);
         }
     }
 }
