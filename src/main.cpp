@@ -105,7 +105,7 @@ bool captureImage() {
 }
 
 void setup() {
-    cdh.begin(115200);
+    cdh.begin();
 
     // Kích hoạt hạ áp cấp nguồn ngoại vi trên PCB vệ tinh qua thư viện EPS
     eps.setBuckState(true);
