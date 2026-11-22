@@ -94,7 +94,8 @@ bool captureImage() {
     if (success) {
         Serial2.print("DONE\n");
         Serial2.flush();
-        cdh.printf("Camera: Da luu %s (%ld bytes)\n", path, received);
+        delay(20);
+        cdh.printf("Camera: Saved %s (%ld bytes)\n", path, received);
         photoCounter++;
     } else {
         cdh.printf("Camera: Loi truyen nhan (%ld/%ld bytes)\n", received, imageSize);
